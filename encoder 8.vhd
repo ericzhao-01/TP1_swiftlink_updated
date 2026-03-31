@@ -185,11 +185,14 @@ constant DEBOUNCE_TIME : integer := 250000; -- ~5ms at 50MHz
 type config_state_t is (TXMAX, RXMAX, TXMID, RXMID, TXMIN, RXMIN);
 signal cfg_state : config_state_t := TXMAX;
 signal cfg_state_prev : config_state_t := TXMAX;
+type menu_item_t is (M_T2, M_T1, M_T0, M_R2, M_R1, M_R0, M_EN1, M_EN2, M_EN3, M_EN4, M_EN5, M_EN6, M_EN7, M_EN8);
+signal menu_item : menu_item_t := M_T2;
 
 signal rqp, rip, tqp, tip, del, cyd : std_logic_vector(4 downto 0);
 signal rva, tva : std_logic_vector(2 downto 0);
 signal rsa, tsa, ren, ten : std_logic;
 signal rvb, lab, tvb, d1b, d2b, pab : std_logic_vector(3 downto 0);
+signal ench : std_logic_vector(7 downto 0) := (others => '0');
 
 type button_state is record
     sync : std_logic_vector(1 downto 0);
@@ -199,7 +202,7 @@ type button_state is record
     prev : std_logic;
 end record;
 
-signal rst_btn, mode_btn, prev_btn, transmit_btn : button_state := (
+signal rst_btn, mode_btn, up_btn, down_btn, transmit_btn : button_state := (
     sync => (others => '0'),
     button_stable => '0',
     counter => 0,
@@ -234,6 +237,8 @@ begin
         when '7' => seg := "1110001";
         when '8' => seg := "0000000";
         when '9' => seg := "0010000";
+        when 'E' => seg := "0000110";
+        when 'N' => seg := "1001000";
         when 'T' => seg := "0001110";
         when 'R' => seg := "1000111";
         when others => seg := "1111111";
@@ -267,45 +272,72 @@ end procedure;
 begin
 
 process(clk_in)
-    variable rst_btn_var, mode_btn_var, prev_btn_var, transmit_btn_var : button_state;
+    variable rst_btn_var, mode_btn_var, up_btn_var, down_btn_var, transmit_btn_var : button_state;
 begin
     if rising_edge(clk_in) then
         rst_btn_var := rst_btn;
         mode_btn_var := mode_btn;
-        prev_btn_var := prev_btn;
+        up_btn_var := up_btn;
+        down_btn_var := down_btn;
         transmit_btn_var := transmit_btn;
 
         debounce_button(PB_in(3), rst_btn_var);
         debounce_button(PB_in(0), mode_btn_var);
-        debounce_button(PB_in(1), prev_btn_var);
+        debounce_button(PB_in(1), up_btn_var);
+        debounce_button(PB_in(2), down_btn_var);
         debounce_button(PB_in(4), transmit_btn_var);
 
         rst_btn <= rst_btn_var;
         mode_btn <= mode_btn_var;
-        prev_btn <= prev_btn_var;
+        up_btn <= up_btn_var;
+        down_btn <= down_btn_var;
         transmit_btn <= transmit_btn_var;
 
         state_change_pulse <= '0';
 
         if rst_btn_var.edge = '1' then
+            menu_item <= M_T2;
             cfg_state <= TXMAX;
         elsif mode_btn_var.edge = '1' then
-            case cfg_state is
-                when TXMAX => cfg_state <= RXMAX;
-                when RXMAX => cfg_state <= TXMID;
-                when TXMID => cfg_state <= RXMID;
-                when RXMID => cfg_state <= TXMIN;
-                when TXMIN => cfg_state <= RXMIN;
-                when RXMIN => cfg_state <= TXMAX;
+            case menu_item is
+                when M_T2  => menu_item <= M_T1; cfg_state <= TXMID;
+                when M_T1  => menu_item <= M_T0; cfg_state <= TXMIN;
+                when M_T0  => menu_item <= M_R2; cfg_state <= RXMAX;
+                when M_R2  => menu_item <= M_R1; cfg_state <= RXMID;
+                when M_R1  => menu_item <= M_R0; cfg_state <= RXMIN;
+                when M_R0  => menu_item <= M_EN1;
+                when M_EN1 => menu_item <= M_EN2;
+                when M_EN2 => menu_item <= M_EN3;
+                when M_EN3 => menu_item <= M_EN4;
+                when M_EN4 => menu_item <= M_EN5;
+                when M_EN5 => menu_item <= M_EN6;
+                when M_EN6 => menu_item <= M_EN7;
+                when M_EN7 => menu_item <= M_EN8;
+                when M_EN8 => menu_item <= M_T2; cfg_state <= TXMAX;
             end case;
-        elsif prev_btn_var.edge = '1' then
-            case cfg_state is
-                when TXMAX => cfg_state <= RXMIN;
-                when RXMAX => cfg_state <= TXMAX;
-                when TXMID => cfg_state <= RXMAX;
-                when RXMID => cfg_state <= TXMID;
-                when TXMIN => cfg_state <= RXMID;
-                when RXMIN => cfg_state <= TXMIN;
+        elsif up_btn_var.edge = '1' then
+            case menu_item is
+                when M_EN1 => ench(0) <= '1';
+                when M_EN2 => ench(1) <= '1';
+                when M_EN3 => ench(2) <= '1';
+                when M_EN4 => ench(3) <= '1';
+                when M_EN5 => ench(4) <= '1';
+                when M_EN6 => ench(5) <= '1';
+                when M_EN7 => ench(6) <= '1';
+                when M_EN8 => ench(7) <= '1';
+                when others => null;
+            end case;
+        elsif down_btn_var.edge = '1' then
+            case menu_item is
+                when M_EN1 => ench(0) <= '0';
+                when M_EN2 => ench(1) <= '0';
+                when M_EN3 => ench(2) <= '0';
+                when M_EN4 => ench(3) <= '0';
+                when M_EN5 => ench(4) <= '0';
+                when M_EN6 => ench(5) <= '0';
+                when M_EN7 => ench(6) <= '0';
+                when M_EN8 => ench(7) <= '0';
+                when others => null;
             end case;
         end if;
 
@@ -366,19 +398,27 @@ begin
     end case;
 end process;
 
-process(cfg_state)
+process(menu_item)
 begin
     HEX2_out <= to_7seg(' ');
     HEX3_out <= to_7seg(' ');
     HEX4_out <= to_7seg(' ');
     HEX5_out <= to_7seg(' ');
-    case cfg_state is
-        when TXMAX => HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('2');
-        when RXMAX => HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('2');
-        when TXMID => HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('1');
-        when RXMID => HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('1');
-        when TXMIN => HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('0');
-        when RXMIN => HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('0');
+    case menu_item is
+        when M_T2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('2');
+        when M_T1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('1');
+        when M_T0  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('0');
+        when M_R2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('2');
+        when M_R1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('1');
+        when M_R0  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('0');
+        when M_EN1 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('1');
+        when M_EN2 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('2');
+        when M_EN3 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('3');
+        when M_EN4 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('4');
+        when M_EN5 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('5');
+        when M_EN6 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('6');
+        when M_EN7 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('7');
+        when M_EN8 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('8');
     end case;
 end process;
 
@@ -443,8 +483,8 @@ Rx_QPS_8 <= rqp; Rx_IPS_8 <= rip; Rx_VGA_8 <= rva; Tx_QPS_8 <= tqp; Tx_IPS_8 <= 
 Rx_SW_8 <= rsa; Tx_SW_8 <= tsa; Rx_EN_8 <= ren; Tx_EN_8 <= ten; Rx_VGA_B_8 <= rvb; LNA_B_8 <= lab;
 Tx_VGA_B_8 <= tvb; DR1_B_8 <= d1b; DR2_B_8 <= d2b; PA_B_8 <= pab;
 
-ENCH1 <= '0'; ENCH2 <= '0'; ENCH3 <= '0'; ENCH4 <= '0';
-ENCH5 <= '0'; ENCH6 <= '0'; ENCH7 <= '0'; ENCH8 <= '0';
+ENCH1 <= ench(0); ENCH2 <= ench(1); ENCH3 <= ench(2); ENCH4 <= ench(3);
+ENCH5 <= ench(4); ENCH6 <= ench(5); ENCH7 <= ench(6); ENCH8 <= ench(7);
 
 Data_delay_out <= del;
 Clk_delay_out <= cyd;
