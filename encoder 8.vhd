@@ -185,8 +185,8 @@ constant DEBOUNCE_TIME : integer := 250000; -- ~5ms at 50MHz
 type config_state_t is (TXMAX, RXMAX, TXMID, RXMID, TXMIN, RXMIN);
 signal cfg_state : config_state_t := TXMAX;
 signal cfg_state_prev : config_state_t := TXMAX;
-type menu_item_t is (M_T2, M_T1, M_T0, M_R2, M_R1, M_R0, M_EN1, M_EN2, M_EN3, M_EN4, M_EN5, M_EN6, M_EN7, M_EN8);
-signal menu_item : menu_item_t := M_T2;
+type menu_item_t is (M_T0, M_T1, M_T2, M_R0, M_R1, M_R2, M_EN1, M_EN2, M_EN3, M_EN4, M_EN5, M_EN6, M_EN7, M_EN8);
+signal menu_item : menu_item_t := M_T0;
 
 signal rqp, rip, tqp, tip, del, cyd : std_logic_vector(4 downto 0);
 signal rva, tva : std_logic_vector(2 downto 0);
@@ -282,9 +282,10 @@ begin
         transmit_btn_var := transmit_btn;
 
         debounce_button(PB_in(3), rst_btn_var);
-        debounce_button(PB_in(0), mode_btn_var);
+        -- Button map: PB_in(2)=LEFT(menu next), PB_in(1)=UP, PB_in(0)=DOWN, PB_in(3)=RESET, PB_in(4)=TRANSMIT
+        debounce_button(PB_in(2), mode_btn_var);
         debounce_button(PB_in(1), up_btn_var);
-        debounce_button(PB_in(2), down_btn_var);
+        debounce_button(PB_in(0), down_btn_var);
         debounce_button(PB_in(4), transmit_btn_var);
 
         rst_btn <= rst_btn_var;
@@ -296,16 +297,16 @@ begin
         state_change_pulse <= '0';
 
         if rst_btn_var.edge = '1' then
-            menu_item <= M_T2;
-            cfg_state <= TXMAX;
+            menu_item <= M_T0;
+            cfg_state <= TXMIN;
         elsif mode_btn_var.edge = '1' then
             case menu_item is
-                when M_T2  => menu_item <= M_T1; cfg_state <= TXMID;
-                when M_T1  => menu_item <= M_T0; cfg_state <= TXMIN;
-                when M_T0  => menu_item <= M_R2; cfg_state <= RXMAX;
-                when M_R2  => menu_item <= M_R1; cfg_state <= RXMID;
-                when M_R1  => menu_item <= M_R0; cfg_state <= RXMIN;
-                when M_R0  => menu_item <= M_EN1;
+                when M_T0  => menu_item <= M_T1; cfg_state <= TXMID;
+                when M_T1  => menu_item <= M_T2; cfg_state <= TXMAX;
+                when M_T2  => menu_item <= M_R0; cfg_state <= RXMIN;
+                when M_R0  => menu_item <= M_R1; cfg_state <= RXMID;
+                when M_R1  => menu_item <= M_R2; cfg_state <= RXMAX;
+                when M_R2  => menu_item <= M_EN1;
                 when M_EN1 => menu_item <= M_EN2;
                 when M_EN2 => menu_item <= M_EN3;
                 when M_EN3 => menu_item <= M_EN4;
@@ -313,7 +314,7 @@ begin
                 when M_EN5 => menu_item <= M_EN6;
                 when M_EN6 => menu_item <= M_EN7;
                 when M_EN7 => menu_item <= M_EN8;
-                when M_EN8 => menu_item <= M_T2; cfg_state <= TXMAX;
+                when M_EN8 => menu_item <= M_T0; cfg_state <= TXMIN;
             end case;
         elsif up_btn_var.edge = '1' then
             case menu_item is
@@ -405,12 +406,12 @@ begin
     HEX4_out <= to_7seg(' ');
     HEX5_out <= to_7seg(' ');
     case menu_item is
-        when M_T2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('2');
-        when M_T1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('1');
         when M_T0  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('0');
-        when M_R2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('2');
-        when M_R1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('1');
+        when M_T1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('1');
+        when M_T2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('T'); HEX0_out <= to_7seg('2');
         when M_R0  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('0');
+        when M_R1  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('1');
+        when M_R2  => HEX2_out <= to_7seg(' '); HEX1_out <= to_7seg('R'); HEX0_out <= to_7seg('2');
         when M_EN1 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('1');
         when M_EN2 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('2');
         when M_EN3 => HEX2_out <= to_7seg('E'); HEX1_out <= to_7seg('N'); HEX0_out <= to_7seg('3');
